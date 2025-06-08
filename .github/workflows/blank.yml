@@ -1,0 +1,34 @@
+name: Build hev-socks5-server with NDK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build hev-socks5-server
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        repository: heiher/hev-socks5-server
+        path: jni
+        submodules: recursive
+
+    - name: Set up Android NDK
+      uses: nttld/setup-ndk@v1
+      with:
+        ndk-version: r25c
+
+    - name: Build with ndk-build
+      run: |
+        cd jni
+        ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=./Android.mk APP_PLATFORM=android-21 NDK_APPLICATION_MK=./Application.mk
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: hev-socks5-server-libs
+        path: |
+          jni/libs/**
