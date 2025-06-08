@@ -1,19 +1,18 @@
-name: Build hev-socks5-server with NDK
+name: Build hev-socks5-server Binary for Android
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build hev-socks5-server
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
+    - name: Checkout source
       uses: actions/checkout@v4
       with:
         repository: heiher/hev-socks5-server
-        path: jni
+        path: hev-socks5-server
         submodules: recursive
 
     - name: Set up Android NDK
@@ -21,14 +20,33 @@ jobs:
       with:
         ndk-version: r25c
 
-    - name: Build with ndk-build
+    - name: Configure and Build (arm64-v8a)
       run: |
-        cd jni
-        ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=./Android.mk APP_PLATFORM=android-21 NDK_APPLICATION_MK=./Application.mk
+        export TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
+        export TARGET=aarch64-linux-android
+        export API=21
+        export CC=$TOOLCHAIN/bin/${TARGET}${API}-clang
+        export CXX=$TOOLCHAIN/bin/${TARGET}${API}-clang++
+        export AR=$TOOLCHAIN/bin/llvm-ar
+        export AS=$TOOLCHAIN/bin/llvm-as
+        export LD=$TOOLCHAIN/bin/ld
+        export STRIP=$TOOLCHAIN/bin/llvm-strip
+        export PATH="$TOOLCHAIN/bin:$PATH"
 
-    - name: Upload build artifacts
+        mkdir -p build-android && cd build-android
+        cmake ../hev-socks5-server \
+          -DCMAKE_SYSTEM_NAME=Android \
+          -DCMAKE_SYSTEM_VERSION=$API \
+          -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a \
+          -DCMAKE_ANDROID_NDK=$ANDROID_NDK_HOME \
+          -DCMAKE_ANDROID_STL_TYPE=c++_static \
+          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+          -DCMAKE_BUILD_TYPE=Release
+
+        make -j$(nproc)
+
+    - name: Upload binary
       uses: actions/upload-artifact@v4
       with:
-        name: hev-socks5-server-libs
-        path: |
-          jni/libs/**
+        name: hev-socks5-server-bin-arm64
+        path: build-android/bin/hev-socks5-server
