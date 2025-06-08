@@ -17,21 +17,23 @@ jobs:
     - name: Set up Android NDK
       uses: nttld/setup-ndk@v1
       with:
-        ndk-version: r25c
+        ndk-version: r27
 
-    - name: Build microsocks (aarch64)
+    - name: Patch Makefile and build
       run: |
         export TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
         export TARGET=aarch64-linux-android
         export API=21
-
         export CC=$TOOLCHAIN/bin/${TARGET}${API}-clang
-        export AR=$TOOLCHAIN/bin/llvm-ar
         export STRIP=$TOOLCHAIN/bin/llvm-strip
 
         cd microsocks
+
+        # Remove -lpthread which is not needed on Android
+        sed -i 's/-lpthread//' Makefile
+
         make clean
-        make CC="$CC" AR="$AR"
+        make CC="$CC"
 
         mkdir -p output
         $STRIP microsocks -o output/microsocks
