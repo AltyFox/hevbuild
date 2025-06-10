@@ -1,45 +1,49 @@
-name: Build microsocks for Android (aarch64)
+name: Build Redsocks for Android AArch64
 
 on:
+  push:
+  pull_request:
   workflow_dispatch:
 
 jobs:
   build:
+    name: Build for Android AArch64
     runs-on: ubuntu-latest
 
+    env:
+      NDK_VERSION: "r27"
+      API_LEVEL: "21"
+
     steps:
-    - name: Checkout microsocks
-      uses: actions/checkout@v4
-      with:
-        repository: rofl0r/microsocks
-        path: microsocks
+      - name: Checkout redsocks source
+        uses: actions/checkout@v3
 
-    - name: Set up Android NDK
-      uses: nttld/setup-ndk@v1
-      with:
-        ndk-version: r27
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget unzip build-essential
 
-    - name: Patch Makefile and build
-      run: |
-        export TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
-        export TARGET=aarch64-linux-android
-        export API=21
-        export CC=$TOOLCHAIN/bin/${TARGET}${API}-clang
-        export STRIP=$TOOLCHAIN/bin/llvm-strip
+      - name: Download Android NDK
+        run: |
+          wget https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip
+          unzip -q android-ndk-${NDK_VERSION}-linux.zip
+          echo "NDK path: $PWD/android-ndk-${NDK_VERSION}"
 
-        cd microsocks
+      - name: Set up environment variables
+        run: |
+          echo "TOOLCHAIN=$PWD/android-ndk-${NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64" >> $GITHUB_ENV
+          echo "TARGET=aarch64-linux-android" >> $GITHUB_ENV
+          echo "CC=$PWD/android-ndk-${NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${API_LEVEL}-clang" >> $GITHUB_ENV
+          echo "AR=$PWD/android-ndk-${NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> $GITHUB_ENV
+          echo "STRIP=$PWD/android-ndk-${NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" >> $GITHUB_ENV
 
-        # Remove -lpthread which is not needed on Android
-        sed -i 's/-lpthread//' Makefile
+      - name: Build redsocks
+        run: |
+          make clean
+          make CC="$CC" AR="$AR" STRIP="$STRIP"
 
-        make clean
-        make CC="$CC"
-
-        mkdir -p output
-        $STRIP microsocks -o output/microsocks
-
-    - name: Upload binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: microsocks-aarch64
-        path: microsocks/output/microsocks
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: redsocks-aarch64
+          path: redsocks
