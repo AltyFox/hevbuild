@@ -1,49 +1,47 @@
-name: Build Redsocks for Android AArch64
+name: Build redsocks for Android (aarch64)
 
 on:
   push:
-  pull_request:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build for Android AArch64
     runs-on: ubuntu-latest
 
-    env:
-      NDK_VERSION: "r27"
-      API_LEVEL: "21"
-
     steps:
-      - name: Checkout redsocks source
-        uses: actions/checkout@v3
+    - name: Checkout redsocks
+      uses: actions/checkout@v4
+      with:
+        repository: darkk/redsocks
+        path: redsocks
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip build-essential
+    - name: Set up Android NDK
+      uses: nttld/setup-ndk@v1
+      with:
+        ndk-version: r27
 
-      - name: Download Android NDK
-        run: |
-          wget https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip
-          unzip -q android-ndk-${NDK_VERSION}-linux.zip
-          echo "NDK path: $PWD/android-ndk-${NDK_VERSION}"
+    - name: Patch Makefile and build
+      run: |
+        export TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
+        export TARGET=aarch64-linux-android
+        export API=21
+        export CC=$TOOLCHAIN/bin/${TARGET}${API}-clang
+        export STRIP=$TOOLCHAIN/bin/llvm-strip
+        export AR=$TOOLCHAIN/bin/llvm-ar
 
-      - name: Set up environment variables
-        run: |
-          echo "TOOLCHAIN=$PWD/android-ndk-${NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64" >> $GITHUB_ENV
-          echo "TARGET=aarch64-linux-android" >> $GITHUB_ENV
-          echo "CC=$PWD/android-ndk-${NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${API_LEVEL}-clang" >> $GITHUB_ENV
-          echo "AR=$PWD/android-ndk-${NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> $GITHUB_ENV
-          echo "STRIP=$PWD/android-ndk-${NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" >> $GITHUB_ENV
+        cd redsocks
 
-      - name: Build redsocks
-        run: |
-          make clean
-          make CC="$CC" AR="$AR" STRIP="$STRIP"
+        # Remove -lpthread if present in Makefile
+        sed -i 's/-lpthread//' Makefile
 
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: redsocks-aarch64
-          path: redsocks
+        make clean
+        make CC="$CC" AR="$AR"
+
+        mkdir -p output
+        $STRIP redsocks -o output/redsocks
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: redsocks-aarch64
+        path: red
