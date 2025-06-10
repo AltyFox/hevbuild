@@ -1,7 +1,6 @@
 name: Build redsocks for Android (aarch64)
 
 on:
-  push:
   workflow_dispatch:
 
 jobs:
@@ -15,33 +14,36 @@ jobs:
         repository: darkk/redsocks
         path: redsocks
 
+    - name: Checkout libevent
+      uses: actions/checkout@v4
+      with:
+        repository: libevent/libevent
+        ref: release-2.1.12-stable
+        path: libevent
+
     - name: Set up Android NDK
       uses: nttld/setup-ndk@v1
       with:
         ndk-version: r27
 
-    - name: Patch Makefile and build
+    - name: Build libevent for Android
       run: |
         export TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
         export TARGET=aarch64-linux-android
         export API=21
         export CC=$TOOLCHAIN/bin/${TARGET}${API}-clang
-        export STRIP=$TOOLCHAIN/bin/llvm-strip
         export AR=$TOOLCHAIN/bin/llvm-ar
+        export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
+        export HOST=${TARGET}
 
-        cd redsocks
+        cd libevent
+        ./autogen.sh
+        ./configure \
+          --host=$HOST \
+          --disable-shared \
+          --enable-static \
+          --disable-openssl \
+          --prefix=$(pwd)/build \
+          CC="$CC" AR="$AR" RANLIB="$RANLIB"
 
-        # Remove -lpthread if present in Makefile
-        sed -i 's/-lpthread//' Makefile
-
-        make clean
-        make CC="$CC" AR="$AR"
-
-        mkdir -p output
-        $STRIP redsocks -o output/redsocks
-
-    - name: Upload binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: redsocks-aarch64
-        path: red
+        make -j$(n
