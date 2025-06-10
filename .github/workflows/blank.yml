@@ -1,8 +1,8 @@
 name: Build redsocks for Android (aarch64)
 
 on:
-  push:
   workflow_dispatch:
+  push:
 
 jobs:
   build:
@@ -47,4 +47,34 @@ jobs:
           --prefix=$(pwd)/build \
           CC="$CC" AR="$AR" RANLIB="$RANLIB"
 
-        make -j$(n
+        make -j$(nproc)
+        make install
+
+    - name: Build redsocks with static libevent
+      run: |
+        export TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
+        export TARGET=aarch64-linux-android
+        export API=21
+        export CC=$TOOLCHAIN/bin/${TARGET}${API}-clang
+        export AR=$TOOLCHAIN/bin/llvm-ar
+        export STRIP=$TOOLCHAIN/bin/llvm-strip
+
+        cd redsocks
+
+        sed -i 's/-lpthread//' Makefile
+
+        make clean
+        make \
+          CC="$CC" \
+          AR="$AR" \
+          CFLAGS="-I../libevent/build/include" \
+          LDFLAGS="-L../libevent/build/lib -levent"
+
+        mkdir -p output
+        $STRIP redsocks -o output/redsocks
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: redsocks-aarch64
+        path: redsocks/output/redsocks
