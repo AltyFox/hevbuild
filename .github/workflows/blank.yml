@@ -1,6 +1,7 @@
 name: Build redsocks for Android (aarch64)
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
